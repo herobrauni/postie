@@ -24,11 +24,12 @@ RUN --mount=type=cache,target=/tmp/bun-build-cache,sharing=locked \
     bun run build
 
 # Backend build stage with native arch support (no cross-compilation)
-FROM golang:1.24-alpine AS backend-builder
+FROM golang:1.26 AS backend-builder
 
 # Install build dependencies including sqlite with cache mount
-RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    apk add --no-cache git gcc g++ musl-dev sqlite-dev
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update -qq && apt-get install -y --no-install-recommends \
+    git gcc g++ libsqlite3-dev
 
 # Set working directory
 WORKDIR /app
@@ -54,7 +55,7 @@ COPY --from=frontend-builder /app/frontend/build ./frontend/build
 RUN --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
     --mount=type=cache,target=/tmp/go-build-cache,sharing=locked \
     CGO_ENABLED=1 GOOS=linux \
-    go build -a -ldflags '-linkmode external -extldflags "-static"' -o postie-web cmd/web/main.go
+    go build -a -ldflags '-linkmode external -extldflags "-static"' -o postie-web ./cmd/web/
 
 # Final stage - use LinuxServer.io base image (has s6-overlay + PUID/PGID support)
 FROM ghcr.io/linuxserver/baseimage-ubuntu:jammy

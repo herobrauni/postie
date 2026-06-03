@@ -647,6 +647,12 @@ func (p *Postie) ExecutePostUploadScript(ctx context.Context, nzbPath string, so
 		return nil
 	}
 
+	// Don't execute script if nzbPath is empty (can happen with deferred check errors)
+	if nzbPath == "" {
+		slog.WarnContext(ctx, "Skipping post upload script execution: NZB path is empty", "source_path", sourcePath, "item_id", itemID)
+		return nil
+	}
+
 	slog.InfoContext(ctx, "Executing post upload script", "command", p.postUploadScriptCfg.Command, "nzb_path", nzbPath, "source_path", sourcePath, "item_id", itemID)
 
 	// Create timeout context
@@ -730,6 +736,16 @@ func buildPar2RelativePaths(sourceFiles []fileinfo.FileInfo, par2Paths []string)
 // empty/ambiguous name.
 func deriveFolderName(rootDir string, files []fileinfo.FileInfo) string {
 	if len(files) > 0 {
+		// First, try to use the RelativePath field if it's set (preferred, as it's
+		// calculated by collectFilesInFolder and includes the folder name)
+		if files[0].RelativePath != "" {
+			parts := strings.SplitN(files[0].RelativePath, "/", 2)
+			if len(parts) > 0 && parts[0] != "." && parts[0] != "" {
+				return parts[0]
+			}
+		}
+
+		// Fallback to calculating relative path from rootDir
 		relPath, err := filepath.Rel(rootDir, files[0].Path)
 		if err == nil {
 			parts := strings.SplitN(filepath.ToSlash(relPath), "/", 2)

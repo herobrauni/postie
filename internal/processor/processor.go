@@ -328,9 +328,14 @@ func (p *Processor) processNextItem(ctx context.Context) error {
 		}
 
 		// Execute post upload script if configured (NZB is valid)
+		// Only execute if we have a valid NZB path
 		sourcePath := strings.TrimPrefix(job.Path, "FOLDER:")
-		if scriptErr := jobPostie.ExecutePostUploadScript(ctx, actualNzbPath, sourcePath, completedItemID); scriptErr != nil {
-			slog.ErrorContext(ctx, "Post upload script execution failed", "error", scriptErr, "nzbPath", actualNzbPath)
+		if actualNzbPath != "" {
+			if scriptErr := jobPostie.ExecutePostUploadScript(ctx, actualNzbPath, sourcePath, completedItemID); scriptErr != nil {
+				slog.ErrorContext(ctx, "Post upload script execution failed", "error", scriptErr, "nzbPath", actualNzbPath)
+			}
+		} else {
+			slog.WarnContext(ctx, "Skipping post upload script: NZB path is empty despite deferred error", "path", job.Path)
 		}
 
 		if p.onJobComplete != nil {
